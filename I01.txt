@@ -1,0 +1,126 @@
+CREATE OR REPLACE PROCEDURE PROC_KITS_IX603000_I01
+(
+    o_rtn_cursor  out sys_refcursor
+    , i_under_data_div    varchar2 /* 구분 */
+    , i_base_date         varchar2 /* 기준일 */
+    , i_to_date           varchar2 /* 조회종료일 */
+    , i_under_data        varchar2 /* 금리 */
+    , i_input_man_id      varchar2 /* 입력자 */
+)
+as
+
+    o_result_cd       varchar2(10)       := 'SUCC';
+    o_result_nm       varchar2(1000)     := '';
+    v_count           number(5)          := 0;
+    v_updade_date     date;
+
+    --v_temp_date       date ;
+    
+    v_last_index      varchar2(100)         :='';
+
+    v_comp_under_data  number(5)         :=0;         /*값을 수정할 때 비교할 금리값*/
+begin
+
+    /*처음 입력되는 값인지 확인,입력시간 중에 오늘 날짜가 이미 존재하는지 확인*/
+    SELECT COUNT(*)
+    INTO v_count
+    FROM IX_EC_UNDER_DATA_RCV
+    WHERE TO_CHAR(INPUT_DTIME,'YYYYMMDD') = TO_CHAR(sysdate,'YYYYMMDD')
+    AND UNDER_DATA_DIV = i_under_data_div   
+    ;
+    
+    /*제일 마지막으로 입력된 금리 값*/   
+    SELECT UNDER_DATA
+    INTO v_last_index
+    FROM IX_EC_UNDER_DATA_RCV 
+    WHERE under_data_div = i_under_data_div
+    AND  END_DATE = '99991231'   
+    ;
+    
+    /*금리값 다를 때 업데이트할 99991231에서 업데이트할 일자 계산(받아온 기준일 -1)*/
+    SELECT TO_CHAR(TO_DATE(i_base_date)-1,'yyyymmdd')
+    INTO v_updade_date
+    FROM dual
+    ;
+    
+    /*처음 입력한 값 && 제일 마지막으로 입력된 금리 = 입력할 금리*/
+    if ( v_count = 0 AND v_last_index = i_under_data ) then
+      
+       UPDATE IX_EC_UNDER_DATA_RCV
+              SET
+                     INPUT_MAN_ID = i_input_man_id,
+                     INPUT_DTIME = sysdate
+              WHERE UNDER_DATA_DIV = i_under_data_div
+              AND END_DATE = '99991231'              
+              ;
+              
+       /*처음 입력한 값 && 제일 마지막으로 입력된 금리 != 입력할 금리*/ 
+      ELSIF ( v_count = 0 AND v_last_index != i_under_data ) then
+       /*가장 마지막에 입력된 값 업데이트 및 새로운 값 insert */
+      
+      UPDATE IX_EC_UNDER_DATA_RCV
+             SET 
+                    END_DATE = TO_CHAR(v_updade_date,'YYYYMMDD')
+                    --INPUT_MAN_ID = i_input_man_id
+                    --INPUT_DTIME = sysdate
+             WHERE UNDER_DATA_DIV = i_under_data_div
+               AND END_DATE = '99991231'
+      ;
+      INSERT INTO IX_EC_UNDER_DATA_RCV
+        (
+              START_DATE,
+              END_DATE,
+              UNDER_DATA_DIV,
+              UNDER_DATA,
+              INPUT_MAN_ID,
+              INPUT_DTIME
+        )
+        VALUES
+        (
+              i_base_date,
+              '99991231',
+              i_under_data_div,
+              i_under_data,
+              i_input_man_id,
+              sysdate
+        )
+        ;
+        
+
+        end if;
+
+ 
+    commit;
+
+    open o_rtn_cursor for
+        select  'SUCC'         as r_code
+              ,  ''            as r_mssg
+        from    dual;
+
+        <<error_result>>
+    if ( o_result_cd <> 'SUCC') then
+
+        open o_rtn_cursor for
+            select  o_result_cd  as r_code
+                  , o_result_nm  as r_mssg
+            from    dual;
+
+        return;
+
+    end if;
+
+exception
+    when others then
+
+        rollback;
+
+        o_result_cd := 'ERR';
+        o_result_nm := sqlerrm;
+
+        open o_rtn_cursor for
+            select  o_result_cd as r_code
+                  , o_result_nm as r_mssg
+            from    dual;
+
+
+end;

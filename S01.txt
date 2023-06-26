@@ -1,0 +1,65 @@
+create or replace procedure PROC_KITS_IX603000_S01
+(
+    o_rtn_cursor  out sys_refcursor
+    , i_init_yn           varchar2 /* 초기화 여부 - 1:초기화, 0:초기화아님 */
+    , i_base_date         varchar2 /* 기준일 */
+    , i_to_date           varchar2 /* 조회종료일 */
+    , i_under_data_div        varchar2 /* 구분 */
+   
+)
+as
+    
+ /*구분값으로 기준일 분류하기 위한 변수*/
+    v_under_data_div    varchar2(10) := '';
+
+    v_query             varchar2(32767) := '';
+    
+ /*구분 값에 따른 기준일자 */
+    v_date_div          varchar2(10) := '';
+
+begin
+  
+ /*입력한 구분 값이 BC일 때 v_under_data_div 업데이트*/
+ /*추후, 전 영업일 코드 추가시 if문에 AND조건 추가하면 된다.v_under_data_div = '0'이면 전영업일*/   
+    if(i_under_data_div = 'BC') then 
+
+       v_under_data_div := '0';
+
+    end if;
+
+    if(v_under_data_div = '0') then
+        v_date_div := FUNC_GET_STOCK_YES_BIZ_DAY(TO_CHAR(sysdate, 'YYYYMMDD'));
+    else
+         v_date_div := TO_CHAR(sysdate, 'YYYYMMDD');
+    end if;             
+
+    v_query := '';
+    v_query := v_query || ' SELECT ';
+    v_query := v_query || '    ''0'' AS CHK ';
+    v_query := v_query || '   , UDR.UNDER_DATA_DIV || '':'' || DC.DIV_NAME AS INDEX_DIV ';
+    v_query := v_query || '   , UDR.START_DATE AS BASE_DATE ';
+    v_query := v_query || '   , UDR.END_DATE AS END_DATE';
+    v_query := v_query || '   , UDR.UNDER_DATA AS UNDER_DATA  ';
+    v_query := v_query || '   , USR.USER_NAME AS INPUT_MAN_NAME ';
+    v_query := v_query || '   , TO_CHAR(UDR.INPUT_DTIME, ''YYYY-MM-DD HH24:MI:SS'') AS INPUT_DTIME ';
+    /*BIZ_YN 들어갈 부분*/ 
+    v_query := v_query || '   , '''||v_date_div||'''  AS BIZ_YN';
+    v_query := v_query || ' FROM IX_EC_UNDER_DATA_RCV UDR ';
+    v_query := v_query || '   , EC_SM_USER_MASTER USR ';
+    v_query := v_query || '   , co_cd_div_code DC ';
+    v_query := v_query || ' WHERE UDR.INPUT_MAN_ID = USR.USER_ID(+) ';
+    v_query := v_query || ' AND UDR.UNDER_DATA_DIV = DC.DIV_CODE' ;
+    v_query := v_query || ' AND UDR.START_DATE >= ''' || i_base_date || '''          ';
+    v_query := v_query || ' AND UDR.END_DATE <= ''99991231''          ';
+    v_query := v_query || ' AND UDR.UNDER_DATA_DIV = ''' || i_under_data_div || ''' ';
+    v_query := v_query || ' AND DC.DIV_CLASS_CODE= ''EC909'' ';
+    
+    if ( i_init_yn = '1') then
+      v_query := v_query || ' AND 1=2';
+    end if;
+    v_query := v_query || ' ORDER BY UDR.END_DATE DESC ';
+    open o_rtn_cursor for v_query;
+
+ 
+        
+end;

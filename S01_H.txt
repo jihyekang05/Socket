@@ -1,0 +1,25 @@
+create or replace procedure PROC_KITS_IX603000_S01_H
+(
+    o_rtn_cursor  out sys_refcursor
+    , i_init_yn           varchar2 /* 초기화 여부 - 1:초기화, 0:초기화아님 */
+    , i_base_date         varchar2 /* 기준일 */
+    , i_to_date           varchar2 /* 조회종료일 */
+    , i_under_data_div        varchar2 /* 구분 */
+)
+as
+
+begin
+
+         open o_rtn_cursor for
+                      select ''     as b, '선택'                     as c, 'C1'   as t, 45  as w from dual
+                      
+            union all select ''     as b, '구분'                    as c, 'T'   as t, 130  as w from dual
+            union all select ''     as b, '기준일자'                  as c, 'T'   as t, 80  as w from dual
+            union all select ''     as b, '기준종료일'                  as c, 'T'   as t, 80  as w from dual
+            union all select ''     as b, '금리'                    as c, 'T'   as t, 70  as w from dual
+            union all select ''     as b, '입력자'                   as c, 'T'   as t, 75  as w from dual
+            union all select ''     as b, '입력시간'                   as c, 'T'   as t, 130  as w from dual
+            union all select ''     as b, 'BIZ_YN'                 as c, 'T'   as t, 0   as w  from dual
+            ;
+
+end;
